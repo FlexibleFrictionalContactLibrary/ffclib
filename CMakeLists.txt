@@ -1,0 +1,75 @@
+# cfcbench: solves cfc/fclib files (cfc/FORMAT.md) with Clarabel, QOCO, ConicXX, SCS and NVIDIA cuOpt.
+# Needs the cfc library (cfc/, Eigen + HDF5) and the solvers only, not CardilloCxx.
+#
+#   cmake -S . -B build [-DCFCBENCH_WITH_CUOPT=ON -DCUOPT_ROOT=<venv or conda prefix>]
+#   cmake --build build -j
+#
+# Already fetched solver sources can be reused with -DFETCHCONTENT_SOURCE_DIR_<NAME>=<dir>.
+cmake_minimum_required(VERSION 3.24)
+project(cfcbench LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+option(CFCBENCH_WITH_CLARABEL "Clarabel (needs Rust/cargo)" ON)
+option(CFCBENCH_WITH_QOCO "QOCO" ON)
+option(CFCBENCH_WITH_CONICXX "ConicXX" ON)
+option(CFCBENCH_WITH_SCS "SCS" ON)
+option(CFCBENCH_WITH_CUOPT "NVIDIA cuOpt (Linux; cuOpt >= 26.10.1, e.g. pip libcuopt-mathopt-cu12)" OFF)
+option(CFCBENCH_NATIVE_ARCH "-march=native for everything built here" ON)
+# One instruction set for all code: Eigen objects cross the boundaries between cfc_solve, the cfc library
+# and ConicXX, and Eigen's alignment of dynamic allocations depends on it (mixed flags crash).
+if(CFCBENCH_NATIVE_ARCH)
+    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-march=native>)
+endif()
+
+add_subdirectory(cfc)
+include(Backends)
+
+function(_cfcbench_describe dir out)
+    set(_v "unknown")
+    if(dir AND EXISTS "${dir}")
+        execute_process(COMMAND git -C "${dir}" describe --tags --always --dirty OUTPUT_VARIABLE _d RESULT_VARIABLE _r OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(_r EQUAL 0)
+            set(_v "${_d}")
+        endif()
+    endif()
+    set(${out} "${_v}" PARENT_SCOPE)
+endfunction()
+_cfcbench_describe("${CMAKE_CURRENT_SOURCE_DIR}" _bench_git)
+_cfcbench_describe("${clarabel_SOURCE_DIR}" _clarabel_v)
+_cfcbench_describe("${qoco_SOURCE_DIR}" _qoco_v)
+_cfcbench_describe("${scs_SOURCE_DIR}" _scs_v)
+_cfcbench_describe("${conicxx_SOURCE_DIR}" _conicxx_v)
+
+add_executable(cfc_solve src/cfc_solve.cpp src/backends.cpp)
+target_link_libraries(cfc_solve PRIVATE cfc::cfc)
+target_compile_options(cfc_solve PRIVATE -Wall -Wextra)
+target_compile_definitions(cfc_solve PRIVATE CFCBENCH_GIT="${_bench_git}" CFCBENCH_CLARABEL_VERSION="${_clarabel_v}" CFCBENCH_QOCO_VERSION="${_qoco_v}"
+    CFCBENCH_SCS_VERSION="${_scs_v}" CFCBENCH_CONICXX_VERSION="${_conicxx_v}")
+if(CFCBENCH_WITH_CLARABEL)
+    target_link_libraries(cfc_solve PRIVATE libclarabel_c_shared)
+    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CLARABEL)
+endif()
+if(CFCBENCH_WITH_QOCO)
+    target_link_libraries(cfc_solve PRIVATE qoco)
+    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_QOCO)
+endif()
+if(CFCBENCH_WITH_CONICXX)
+    target_link_libraries(cfc_solve PRIVATE conicxx::conicxx)
+    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CONICXX)
+endif()
+if(CFCBENCH_WITH_SCS)
+    target_sources(cfc_solve PRIVATE src/vendor/cardillo/scs_backend.cpp)
+    target_link_libraries(cfc_solve PRIVATE scsdir)
+    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_SCS)
+endif()
+if(CFCBENCH_WITH_CUOPT)
+    target_sources(cfc_solve PRIVATE src/vendor/cardillo/cuopt_backend.cpp src/vendor/cardillo/cuopt_model.cpp)
+    target_link_libraries(cfc_solve PRIVATE CUOPT::CUOPT)
+    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CUOPT)
+endif()
+message(STATUS "cfcbench ${_bench_git}: Clarabel ${_clarabel_v}, QOCO ${_qoco_v}, ConicXX ${_conicxx_v}, SCS ${_scs_v}, cuOpt=${CFCBENCH_WITH_CUOPT}")
