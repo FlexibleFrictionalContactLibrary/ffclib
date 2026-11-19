@@ -44,6 +44,9 @@ struct Solution {
 // factorized (MassInverse); that C is positive semidefinite is assumed.
 void check(const Problem& pb);
 
+// v = M^-1 (f + H r + G lambda), the velocity that the percussions produce.
+Vector velocity(const Problem& pb, const Vector& r, const Vector& lambda);
+
 // M^-1 applied to vectors and sparse matrices: a diagonal M directly, otherwise through a sparse LDL^T
 // factorization of its lower triangle.
 class MassInverse {

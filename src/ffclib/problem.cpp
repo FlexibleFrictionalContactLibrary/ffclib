@@ -26,6 +26,13 @@ void check(const Problem& pb) {
     require(SparseMatrix(pb.C - Ct).norm() == 0, "C must be symmetric (both triangles stored)");
 }
 
+Vector velocity(const Problem& pb, const Vector& r, const Vector& lambda) {
+    Vector force = pb.f;
+    force.noalias() += pb.H * r;
+    force.noalias() += pb.G * lambda;
+    return MassInverse(pb.M)(force);
+}
+
 MassInverse::MassInverse(const SparseMatrix& M) {
     if (M.rows() != M.cols()) throw std::invalid_argument("ffclib: M must be square");
     for (Eigen::Index j = 0; j < M.outerSize() && m_diagonal; ++j)

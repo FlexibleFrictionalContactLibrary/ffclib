@@ -11,10 +11,15 @@ contact geometry, time step, history) does not belong in it.
 
 - `src/ffclib/` – library, headers and sources side by side, included as `<ffclib/...>`: `problem` (Problem,
   Solution, check, MassInverse; sizes nv, nc, nb), `io` (read/write a Record), `error` (the two error measures),
-  `cone.hpp` (projection). Planned: `solver.hpp` (common interface), `gauss_seidel`, `conic/` (cone program +
-  Clarabel, QOCO, ConicXX, SCS, cuOpt, each behind an option), `examples/solve.cpp`.
+  `cone.hpp` (projection). `solver/`: `solver.hpp` (Law, Result), `gauss_seidel` (naive projected Gauss–Seidel/SOR),
+  `conic/` (`cone_program` = convexified problem in the velocity form + ConicSettings; `clarabel`, `scs`, `qoco`,
+  `conicxx`, `cuopt`, each behind `FFCLIB_WITH_<NAME>`: the CPU ones default ON at top level (user), cuOpt OFF; cuOpt
+  gets the force form directly). More solvers will follow.
+- `examples/solve.cpp` (target `ffclib_solve`) – read, solve with Gauss–Seidel, print both errors; the file a user reads first.
 - `tests/` – `test_io` (round trip, fclib both directions via fetched fclib, checks, corrupt files), `test_error`
-  (closed forms, dense reference). `common.hpp`: random problem.
+  (closed forms, dense reference), `test_gauss_seidel` (closed forms, random feasible problem, limits), `test_conic`
+  (cone program equations; each built conic solver on the point mass and the random feasible problem, cuOpt skipped
+  without GPU). `common.hpp`: random problem, feasible random problem, closed-form point mass.
 - `extras/` – the previous benchmark (old `cfc` library parts, apps, Python, scripts, notebooks, results, figures):
   hidden from review, untouched, not built (`extras/README.md`).
 - Problems: separate repository `FlexibleFrictionalContactLibrary/ffclib-library` (Git LFS, `Global/<producer>/<family>/`),
@@ -29,14 +34,27 @@ of the old benchmark). NVIDIA guides 00–04: `/home/jonas/Desktop/CardilloCxx/s
 ## Commands
 
 ```bash
-cmake -S . -B build -DFETCHCONTENT_SOURCE_DIR_FCLIB=/home/jonas/Desktop/CardilloCxx-cfc/build/_deps/fclib-src
+# all solvers (reusing CardilloCxx's fetched sources, incl. Clarabel's compiled Rust core; no download):
+D=/home/jonas/Desktop/CardilloCxx/build/_deps
+cmake -S . -B build-solvers -DFETCHCONTENT_SOURCE_DIR_FCLIB=/home/jonas/Desktop/CardilloCxx-cfc/build/_deps/fclib-src \
+      -DFETCHCONTENT_SOURCE_DIR_CLARABEL=$D/clarabel-src -DFETCHCONTENT_SOURCE_DIR_SCS=$D/scs-src \
+      -DFETCHCONTENT_SOURCE_DIR_QOCO=$D/qoco-src -DFETCHCONTENT_SOURCE_DIR_CONICXX=$D/conicxx-src \
+      -DFFCLIB_WITH_CUOPT=ON -DCUOPT_ROOT=$HOME/venvs/cuopt
+cmake --build build-solvers -j4
+# without the conic solvers (the path without FFCLIB_WITH_*):
+cmake -S . -B build -DFETCHCONTENT_SOURCE_DIR_FCLIB=/home/jonas/Desktop/CardilloCxx-cfc/build/_deps/fclib-src \
+      -DFFCLIB_WITH_CLARABEL=OFF -DFFCLIB_WITH_SCS=OFF -DFFCLIB_WITH_QOCO=OFF -DFFCLIB_WITH_CONICXX=OFF
 cmake --build build -j4
-ctest --test-dir build                       # test_io, test_error
+ctest --test-dir build-solvers               # test_io, test_error, test_gauss_seidel, test_conic
+OMP_NUM_THREADS=1 build-solvers/ffclib_solve ../ffclib-library/Global/CardilloCxx/domino/domino_small_000500.cfc.h5 --solver clarabel
 ```
 
 - **One thread, one job at a time** (`OMP_NUM_THREADS=1`): the machine is shared with other agent sessions.
 - Waiting for background jobs: never `pgrep -f "<pattern>"` in a loop (it matches its own command line).
 - `build-cfc/` is the build tree of the old library (binaries `cfc_info`, `cfc_solve`); delete when not needed.
+- No GPU on this workstation: cuOpt builds and links, but `cuOptSolve` returns no solution (code 4); solves only on
+  bwUniCluster. Before timing Clarabel: `ldd build-solvers/ffclib_solve | grep clarabel` must show `target/release`.
+- Clarabel's Rust core prints one cargo warning; it is not ours (our code builds warning-free).
 
 ## Rules (from the user)
 

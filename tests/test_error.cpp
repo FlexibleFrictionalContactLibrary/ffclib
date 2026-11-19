@@ -20,36 +20,19 @@ namespace {
 
 using test::expect;
 
-// One point mass (dofs 0-2, m = 2) on the ground with the contact frame (N, T1, T2) = (e_z, e_x, e_y),
-// mu = 0.5, and a slider (dof 3, m = 2) on a compliant spring row: G = e_3, C = 0.5, b = -0.2, so that
-// lambda = 0.2 and v_3 = 0.1. f is the momentum without forces. Sticking: f = (0.3, 0, -1, 0), r = (1, -0.3, 0),
-// v = 0. Sliding: f = (2, 0, -1, 0), r = (1, -0.5, 0), v = (0.75, 0, 0).
+// The point mass and slider of test::pointMass().
 void testClosedForm() {
-    ffclib::Problem pb;
-    pb.M.resize(4, 4);
-    for (int i = 0; i < 4; ++i) pb.M.insert(i, i) = 2;
-    pb.H.resize(4, 3);
-    pb.H.insert(2, 0) = 1;
-    pb.H.insert(0, 1) = 1;
-    pb.H.insert(1, 2) = 1;
-    pb.G.resize(4, 1);
-    pb.G.insert(3, 0) = 1;
-    pb.C.resize(1, 1);
-    pb.C.insert(0, 0) = 0.5;
-    pb.w = ffclib::Vector::Zero(3);
-    pb.mu = ffclib::Vector::Constant(1, 0.5);
-    pb.b = ffclib::Vector::Constant(1, -0.2);
+    ffclib::Problem pb = test::pointMass(test::kSticking);
     const ffclib::Vector lambda = ffclib::Vector::Constant(1, 0.2);
     const double tol = 1e-15;
 
-    pb.f = Eigen::Vector4d(0.3, 0, -1, 0);
     ffclib::Errors e = ffclib::errors(pb, Eigen::Vector3d(1, -0.3, 0), lambda);
     expect(e.coulomb < tol && e.convexified < tol, "sticking contact: both laws hold");
 
     // Sliding: u = (0, 0.75, 0). Coulomb's law holds; the convexified law needs u_N = mu ||u_T|| = 0.375. With
     // rho = 2 (H_c^T M^-1 H_c = I / 2), r - rho u = (1, -2, 0) projects onto (1.6, -0.8, 0), so its error is
     // ||(-0.6, 0.3, 0)|| / 2.
-    pb.f = Eigen::Vector4d(2, 0, -1, 0);
+    pb.f = test::kSliding;
     const Eigen::Vector3d slide(1, -0.5, 0);
     e = ffclib::errors(pb, slide, lambda);
     expect(e.coulomb < tol && std::abs(e.convexified - 0.5 * std::sqrt(0.45)) < tol, "sliding contact: Coulomb's law holds, the convexified law not");

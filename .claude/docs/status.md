@@ -1,24 +1,30 @@
 # Status and next steps (2026-11-19)
 
-## Done (uncommitted, working tree)
+## Done
 
-- Problems split off into the local clone of `ffclib-library` (staged, not committed or pushed).
-- Refactoring step 1 + 2: `src/ffclib/` (problem, io, error, cone.hpp), tests `test_io`, `test_error` (pass, no
-  warnings), `FORMAT.md`, `README.md`; everything else in `extras/`. On the 39 problems the reader takes ~0.03 s and
-  the errors ~0.01 s per file; the new Coulomb error of CardilloCxx's stored solutions is within 18 % of the natural
-  map CardilloCxx logged (Euclidean vs max(|x_N|, ‖x_T‖) norm, ṽ vs the solver's v). Their convexified error is
-  large (median 0.27 m/s domino, 0.015 m/s slinky): Coulomb and the zero-shift law differ a lot on these scenes.
+- Committed by the user (95a4017 "Major restructuring and simplifications."): `src/ffclib/` problem, io, error,
+  cone.hpp; tests; `FORMAT.md`; everything else in `extras/`. Problems split off into the local clone of
+  `ffclib-library` (staged there, not committed or pushed).
+- Uncommitted (working tree): `src/ffclib/solver/` with `solver.hpp` (Law, Result with status), `gauss_seidel`,
+  `conic/` (`cone_program`, `clarabel`, `scs`, `qoco`, `conicxx`, `cuopt`; CPU ones built by default); `velocity()` in problem; `cmake/ConicSolvers.cmake`
+  (+ `FindCUOPT.cmake`, `scs_exports.map` from extras); `examples/solve.cpp` with `--solver` (an unknown name lists the built solvers); `test_gauss_seidel`,
+  `test_conic`; the closed-form point mass and the feasible random problem in `tests/common.hpp`.
+- On the real problems (step 500, one thread):
+  - Gauss–Seidel from the file's guess, tolerance 1e-4: domino Coulomb 1,390 sweeps / 2.1 s, convexified 2,720 /
+    3.0 s; slinky not converged after 20,000 sweeps (Coulomb 7.7e-4, convexified 2.1e-3).
+  - Clarabel (defaults): domino Solved, 25 iterations, 2.4 s, convexified error 1.7e-5; slinky Solved, 20 it,
+    0.4 s, 1.2e-4. SCS (defaults): domino "solved", 0.34 s, 1.2e-3; slinky "solved" after 25 iterations with error
+    1.1e3 (1e-6: 3.8e2, 1e-8: 16.5 after 3,950 iterations / 3.2 s). cuOpt: no GPU here.
+  - QOCO (defaults): domino Solved, 21 it, 1.8 s, 8.6e-5; slinky Solved, 18 it, 0.25 s, 9.2e-4. ConicXX: domino
+    Solved, 27 it, 2.1 s, 2.3e-5; slinky Solved, 20 it, 0.27 s, 2.4e-4.
+  - Coulomb and the zero-shift law differ by ~0.2 m/s (domino) and ~0.05 m/s (slinky).
 
-## Next (in this order, after the user's review)
+## Next
 
-1. Confirmation of the error measure at v = M⁻¹(f + Hr + Gλ) (`design.md`).
-2. `solver.hpp` (common interface), Gauss–Seidel/SOR, `examples/solve.cpp` (read → solve → both errors), a test on
-   one domino and one slinky file of ffclib-library (path from CMake, skipped if absent).
-3. Conic solvers into `src/ffclib/conic/` (from `extras/`: cone program form V without shift, wrappers, CMake
-   fetching from `extras/cmake/`), each behind `FFCLIB_WITH_*`, default OFF.
-4. CardilloCxx export follows the new format (no metadata, no shift, `.hdf5`, ffclib names); then re-export domino
+1. cuOpt on bwUniCluster (build on a GPU node with `-DFFCLIB_WITH_CUOPT=ON`; `test_conic` then runs it).
+2. CardilloCxx export follows the new format (no metadata, no shift, `.hdf5`, ffclib names); then re-export domino
    and slinky into ffclib-library and update its README.
-5. Later: the benchmark from `extras/` on top of the new library; cuOpt on bwUniCluster.
+3. More solvers (the user's plan); the benchmark from `extras/` on top of the new library.
 
 ## Open questions for the user
 
