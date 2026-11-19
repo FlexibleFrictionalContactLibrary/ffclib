@@ -1,75 +1,76 @@
-# cfcbench: solves cfc/fclib files (cfc/FORMAT.md) with Clarabel, QOCO, ConicXX, SCS and NVIDIA cuOpt.
-# Needs the cfc library (cfc/, Eigen + HDF5) and the solvers only, not CardilloCxx.
+# ffclib: fclib's global frictional contact problem with compliant bilateral rows (FORMAT.md). The library
+# (src/ffclib/, included as <ffclib/...>) reads and writes the files and evaluates the error measures.
 #
-#   cmake -S . -B build [-DCFCBENCH_WITH_CUOPT=ON -DCUOPT_ROOT=<venv or conda prefix>]
-#   cmake --build build -j
+#   cmake -S . -B build && cmake --build build -j && ctest --test-dir build
 #
-# Already fetched solver sources can be reused with -DFETCHCONTENT_SOURCE_DIR_<NAME>=<dir>.
-cmake_minimum_required(VERSION 3.24)
-project(cfcbench LANGUAGES C CXX)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-if(NOT CMAKE_BUILD_TYPE)
+# As a subproject: add_subdirectory(<this repository>) and link ffclib::ffclib. Installed: find_package(ffclib).
+cmake_minimum_required(VERSION 3.21)
+project(ffclib VERSION 0.1.0 LANGUAGES C CXX)
+
+option(FFCLIB_BUILD_TESTS "Build the tests (fetches fclib for the compatibility test)" ${PROJECT_IS_TOP_LEVEL})
+option(FFCLIB_INSTALL "Install the library and its CMake package" ${PROJECT_IS_TOP_LEVEL})
+
+include(FetchContent)
+include(GNUInstallDirs)
+
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(CFCBENCH_WITH_CLARABEL "Clarabel (needs Rust/cargo)" ON)
-option(CFCBENCH_WITH_QOCO "QOCO" ON)
-option(CFCBENCH_WITH_CONICXX "ConicXX" ON)
-option(CFCBENCH_WITH_SCS "SCS" ON)
-option(CFCBENCH_WITH_CUOPT "NVIDIA cuOpt (Linux; cuOpt >= 26.10.1, e.g. pip libcuopt-mathopt-cu12)" OFF)
-option(CFCBENCH_NATIVE_ARCH "-march=native for everything built here" ON)
-# One instruction set for all code: Eigen objects cross the boundaries between cfc_solve, the cfc library
-# and ConicXX, and Eigen's alignment of dynamic allocations depends on it (mixed flags crash).
-if(CFCBENCH_NATIVE_ARCH)
-    add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-march=native>)
-endif()
-
-add_subdirectory(cfc)
-include(Backends)
-
-function(_cfcbench_describe dir out)
-    set(_v "unknown")
-    if(dir AND EXISTS "${dir}")
-        execute_process(COMMAND git -C "${dir}" describe --tags --always --dirty OUTPUT_VARIABLE _d RESULT_VARIABLE _r OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-        if(_r EQUAL 0)
-            set(_v "${_d}")
-        endif()
+if(NOT TARGET Eigen3::Eigen)
+    find_package(Eigen3 3.4 QUIET NO_MODULE)
+    if(NOT Eigen3_FOUND)
+        message(STATUS "ffclib: Eigen3 not found, fetching Eigen 3.4.0")
+        set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
+        set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+        set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(Eigen3 GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git GIT_TAG 3.4.0 GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(Eigen3)
     endif()
-    set(${out} "${_v}" PARENT_SCOPE)
-endfunction()
-_cfcbench_describe("${CMAKE_CURRENT_SOURCE_DIR}" _bench_git)
-_cfcbench_describe("${clarabel_SOURCE_DIR}" _clarabel_v)
-_cfcbench_describe("${qoco_SOURCE_DIR}" _qoco_v)
-_cfcbench_describe("${scs_SOURCE_DIR}" _scs_v)
-_cfcbench_describe("${conicxx_SOURCE_DIR}" _conicxx_v)
+endif()
+find_package(HDF5 REQUIRED COMPONENTS C)
 
-add_executable(cfc_solve src/cfc_solve.cpp src/backends.cpp)
-target_link_libraries(cfc_solve PRIVATE cfc::cfc)
-target_compile_options(cfc_solve PRIVATE -Wall -Wextra)
-target_compile_definitions(cfc_solve PRIVATE CFCBENCH_GIT="${_bench_git}" CFCBENCH_CLARABEL_VERSION="${_clarabel_v}" CFCBENCH_QOCO_VERSION="${_qoco_v}"
-    CFCBENCH_SCS_VERSION="${_scs_v}" CFCBENCH_CONICXX_VERSION="${_conicxx_v}")
-if(CFCBENCH_WITH_CLARABEL)
-    target_link_libraries(cfc_solve PRIVATE libclarabel_c_shared)
-    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CLARABEL)
+set(FFCLIB_WARNINGS "")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(FFCLIB_WARNINGS -Wall -Wextra)
 endif()
-if(CFCBENCH_WITH_QOCO)
-    target_link_libraries(cfc_solve PRIVATE qoco)
-    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_QOCO)
+
+add_library(ffclib src/ffclib/problem.cpp src/ffclib/io.cpp src/ffclib/error.cpp)
+add_library(ffclib::ffclib ALIAS ffclib)
+target_compile_features(ffclib PUBLIC cxx_std_17)
+set_target_properties(ffclib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(ffclib PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_link_libraries(ffclib PUBLIC Eigen3::Eigen PRIVATE hdf5::hdf5)
+target_compile_options(ffclib PRIVATE ${FFCLIB_WARNINGS})
+
+if(FFCLIB_BUILD_TESTS)
+    enable_testing()
+    # fclib itself (C, needs HDF5's high-level API) checks that both read each other's files. Only its source is
+    # compiled: its CMake project builds its own tests and needs SuiteSparse.
+    find_package(HDF5 REQUIRED COMPONENTS C HL)
+    FetchContent_Declare(fclib GIT_REPOSITORY https://github.com/FrictionalContactLibrary/fclib.git
+        GIT_TAG f894f34f02093910ceb49943d69f4901142bb880 SOURCE_SUBDIR do-not-configure)
+    FetchContent_MakeAvailable(fclib)
+    add_library(ffclib_test_fclib STATIC "${fclib_SOURCE_DIR}/src/fclib.c")
+    set_target_properties(ffclib_test_fclib PROPERTIES C_STANDARD 99)
+    target_include_directories(ffclib_test_fclib SYSTEM PUBLIC "${fclib_SOURCE_DIR}/src")
+    target_link_libraries(ffclib_test_fclib PUBLIC hdf5::hdf5 hdf5::hdf5_hl)
+
+    foreach(_test test_io test_error)
+        add_executable(${_test} tests/${_test}.cpp)
+        target_link_libraries(${_test} PRIVATE ffclib::ffclib)
+        target_compile_options(${_test} PRIVATE ${FFCLIB_WARNINGS})
+        add_test(NAME ${_test} COMMAND ${_test})
+    endforeach()
+    target_link_libraries(test_io PRIVATE ffclib_test_fclib)
 endif()
-if(CFCBENCH_WITH_CONICXX)
-    target_link_libraries(cfc_solve PRIVATE conicxx::conicxx)
-    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CONICXX)
+
+if(FFCLIB_INSTALL)
+    include(CMakePackageConfigHelpers)
+    install(TARGETS ffclib EXPORT ffclibTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(DIRECTORY src/ffclib DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.hpp")
+    install(EXPORT ffclibTargets NAMESPACE ffclib:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ffclib)
+    configure_package_config_file(cmake/ffclibConfig.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/ffclibConfig.cmake" INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ffclib)
+    write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/ffclibConfigVersion.cmake" COMPATIBILITY SameMinorVersion)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ffclibConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ffclibConfigVersion.cmake" DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ffclib)
 endif()
-if(CFCBENCH_WITH_SCS)
-    target_sources(cfc_solve PRIVATE src/vendor/cardillo/scs_backend.cpp)
-    target_link_libraries(cfc_solve PRIVATE scsdir)
-    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_SCS)
-endif()
-if(CFCBENCH_WITH_CUOPT)
-    target_sources(cfc_solve PRIVATE src/vendor/cardillo/cuopt_backend.cpp src/vendor/cardillo/cuopt_model.cpp)
-    target_link_libraries(cfc_solve PRIVATE CUOPT::CUOPT)
-    target_compile_definitions(cfc_solve PRIVATE CFCBENCH_HAVE_CUOPT)
-endif()
-message(STATUS "cfcbench ${_bench_git}: Clarabel ${_clarabel_v}, QOCO ${_qoco_v}, ConicXX ${_conicxx_v}, SCS ${_scs_v}, cuOpt=${CFCBENCH_WITH_CUOPT}")

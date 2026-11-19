@@ -1,9 +1,9 @@
 # Build trees and logs
 build*/
 build*.log
-cfc/build*/
 __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
-# Exported problems (large; to be moved to a separate data set)
-data/
+# Problem files belong to ffclib-library (Git LFS), not to this repository
+*.h5
+*.hdf5
