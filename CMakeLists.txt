@@ -39,8 +39,9 @@ if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYP
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(Dependencies)
+# ffclib's own modules by their path: a parent project may have modules of the same name in its CMAKE_MODULE_PATH.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")  # FindCUOPT.cmake
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake")
 # The CMake package of a static ffclib hands HDF5 on to its users and finds it with find_dependency().
 if(FFCLIB_INSTALL AND FFCLIB_FETCHED_HDF5 AND NOT FFCLIB_SHARED)
     message(FATAL_ERROR "ffclib: installing a static ffclib needs an installed HDF5 (or FFCLIB_SHARED=ON, which carries the fetched one)")
@@ -72,7 +73,7 @@ set_target_properties(ffclib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(ffclib PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(ffclib PUBLIC Eigen3::Eigen PRIVATE hdf5::hdf5)
 target_compile_options(ffclib PRIVATE ${FFCLIB_WARNINGS})
-include(ConicSolvers)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ConicSolvers.cmake")
 
 if(FFCLIB_BUILD_TESTS)
     enable_testing()
