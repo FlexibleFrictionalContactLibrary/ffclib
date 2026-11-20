@@ -55,6 +55,8 @@ OMP_NUM_THREADS=1 build-solvers/ffclib_solve ../ffclib-library/Global/CardilloCx
 - No GPU on this workstation: cuOpt builds and links, but `cuOptSolve` returns no solution (code 4); solves only on
   bwUniCluster. Before timing Clarabel: `ldd build-solvers/ffclib_solve | grep clarabel` must show `target/release`.
 - Clarabel's Rust core prints one cargo warning; it is not ours (our code builds warning-free).
+- License Apache-2.0 (`LICENSE`, `NOTICE`); ConicXX is GPL-3.0. Top level builds the shared `libffclib` (installable with
+  all solvers); as a subproject/FetchContent it is static (`design.md`, "License and packaging").
 
 ## Rules (from the user)
 

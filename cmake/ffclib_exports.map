@@ -1,0 +1,10 @@
+/* Linker version script of the shared libffclib: export only ffclib's API (namespace ffclib) and keep the
+   statically linked solvers' symbols (QOCO's AMD and QDLDL, Clarabel's Rust runtime, ConicXX) local. */
+{
+  global:
+    extern "C++" {
+      ffclib::*;
+    };
+  local:
+    *;
+};

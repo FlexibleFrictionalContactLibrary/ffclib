@@ -9,7 +9,6 @@ conic solvers).
 |---|---|
 | `apps/` | `cfc_info` (sizes and residuals of files), `cfc_solve` (benchmark driver) with `solvers.*` and `json.hpp` |
 | `cfc/` | the old cone-program builder (forms V and F) |
-| `third_party/cardillo/` | copies of CardilloCxx's SCS and cuOpt wrappers (replaced by `src/ffclib/solver/conic/`) |
 | `cmake/` | the old fetching of the conic solvers (`FindCUOPT.cmake` and `scs_exports.map` moved to `cmake/`) |
 | `python/` | Python reader and residual twin, sweep runner and plots |
 | `scripts/`, `notebooks/` | sweeps (CPU, bwUniCluster GPU), analysis |

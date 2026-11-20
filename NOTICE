@@ -1,0 +1,14 @@
+ffclib — Flexible Frictional Contact Library
+Copyright 2026 Jonas Breuling
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+Optional dependencies, fetched or found at build time and linked into ffclib when enabled:
+  Clarabel    Apache License 2.0      https://github.com/oxfordcontrol/Clarabel.cpp
+  SCS         MIT License             https://github.com/cvxgrp/scs
+  QOCO        BSD 3-Clause License    https://github.com/qoco-org/qoco
+  ConicXX     GNU GPL v3.0            https://github.com/ConicXX/ConicXX
+  NVIDIA cuOpt  Apache License 2.0    https://github.com/NVIDIA/cuopt
+Building with ConicXX (FFCLIB_WITH_CONICXX) makes the resulting binaries a combined work under the GNU GPL v3.0.
+
+The tests compile fclib (Apache License 2.0, https://github.com/FrictionalContactLibrary/fclib).

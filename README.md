@@ -62,21 +62,44 @@ error = max( ‖Gᵀv + b + Cλ‖∞ ,  max_c ‖r_c − proj_K(r_c − ρ_c û
 Coulomb:      û_c = u_c + (μ_c ‖u_T,c‖, 0, 0)        convexified:  û_c = u_c
 ```
 
-## Build
+## Build and install
 
-Needs a C++17 compiler, CMake ≥ 3.21, HDF5 (C), Eigen ≥ 3.4 (fetched if missing) and, for Clarabel, Rust/cargo.
+Needs a C++17 compiler, CMake ≥ 3.21 (≥ 3.28 keeps the solvers' own install rules out), HDF5 (C), Eigen ≥ 3.4
+(fetched if missing) and, for Clarabel, Rust/cargo.
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DFFCLIB_WITH_CLARABEL=ON -DFFCLIB_WITH_SCS=ON -DFFCLIB_WITH_QOCO=ON -DFFCLIB_WITH_CONICXX=ON
 cmake --build build -j
 ctest --test-dir build              # test_io (incl. compatibility with fclib, fetched), test_error, test_gauss_seidel, test_conic
+cmake --install build --prefix <prefix>
 ```
 
-Conic solvers: Clarabel (needs Rust/cargo), SCS, QOCO and ConicXX are fetched and built by default
-(`-DFFCLIB_WITH_<NAME>=OFF` leaves one out; as a subproject they are OFF by default). cuOpt:
+Conic solvers (all OFF by default): `-DFFCLIB_WITH_CLARABEL=ON` (needs Rust/cargo), `-DFFCLIB_WITH_SCS=ON`,
+`-DFFCLIB_WITH_QOCO=ON`, `-DFFCLIB_WITH_CONICXX=ON` (fetched; a local checkout: `-DFETCHCONTENT_SOURCE_DIR_<NAME>=<dir>`),
 `-DFFCLIB_WITH_CUOPT=ON -DCUOPT_ROOT=<venv or conda prefix>` (cuOpt ≥ 26.10.1, e.g. pip `libcuopt-mathopt-cu12`; solves
-only with an NVIDIA GPU). Fetched sources can be reused with `-DFETCHCONTENT_SOURCE_DIR_<NAME>=<dir>`. With a
-conic solver the library is not installed (the CMake package does not carry their libraries yet).
+only with an NVIDIA GPU). A top-level build makes the shared `libffclib`, which carries Clarabel, QOCO and ConicXX
+and exports only `ffclib::` symbols; SCS's `libscsdir` is installed next to it. The built solvers are visible to
+users as the compile definitions `FFCLIB_WITH_<NAME>`.
 
-Use from CMake: `add_subdirectory(<this repository>)` or, after `cmake --install`, `find_package(ffclib)`;
-link `ffclib::ffclib`.
+**Installed:**
+
+```cmake
+find_package(ffclib 0.1 REQUIRED)            # CMAKE_PREFIX_PATH=<prefix>
+target_link_libraries(app PRIVATE ffclib::ffclib)
+```
+
+**FetchContent** (ffclib is then a static library without tests and examples; solvers as above):
+
+```cmake
+include(FetchContent)
+set(FFCLIB_WITH_CLARABEL ON)                 # optional solvers
+FetchContent_Declare(ffclib GIT_REPOSITORY https://github.com/FlexibleFrictionalContactLibrary/ffclib.git GIT_TAG main)
+FetchContent_MakeAvailable(ffclib)
+target_link_libraries(app PRIVATE ffclib::ffclib)
+```
+
+## License
+
+Apache License 2.0 (`LICENSE`), as fclib. The optional solvers keep their licenses (`NOTICE`): Clarabel and cuOpt
+Apache 2.0, SCS MIT, QOCO BSD 3-Clause, **ConicXX GNU GPL v3.0** — binaries built with `FFCLIB_WITH_CONICXX` are a
+combined work under the GPL v3.0.

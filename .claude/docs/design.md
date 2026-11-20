@@ -67,3 +67,14 @@ H_c = 0 are skipped. NaN propagates.
     serial, LAPACK if found. Clarabel: Rust core in cargo's release profile (RelWithDebInfo presented as Release).
   - With a conic solver the library is not installed: the CMake export cannot carry the solvers' targets yet.
   - Later question: should CardilloCxx use ffclib's conic solvers instead of its own wrappers?
+
+## License and packaging (2026-11-20)
+
+- Apache-2.0 (as fclib; chosen by Claude on the user's request), `LICENSE` + `NOTICE` (third-party licenses).
+  ConicXX and CardilloCxx are GPL-3.0: binaries with `FFCLIB_WITH_CONICXX` are GPL combined works (fine for the user:
+  ConicXX is only a test of the user's own solver).
+- Top level: shared `libffclib` (`FFCLIB_SHARED`), Clarabel (its Rust static library), QOCO and ConicXX linked in
+  with PIC, version script `cmake/ffclib_exports.map` exports only `ffclib::*`; `libscsdir` (shared, hides its
+  AMD/QDLDL) installed next to it, RPATH `$ORIGIN`. Subproject/FetchContent: static, no tests/examples/install.
+  Solver fetches use `EXCLUDE_FROM_ALL` from CMake 3.28 (no foreign install rules, no unused SCS libraries).
+- Verified: install to a prefix + `find_package(ffclib)` consumer, FetchContent consumer with Clarabel and SCS.
