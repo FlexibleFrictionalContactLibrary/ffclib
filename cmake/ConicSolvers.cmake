@@ -4,12 +4,7 @@
 include(FetchContent)
 # The statically linked solvers end up in the shared ffclib.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-# Build only what ffclib links and skip the solvers' own install rules (CMake >= 3.28; older versions also build
-# and install their other libraries, headers and packages).
-set(_ffclib_exclude "")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
-    set(_ffclib_exclude EXCLUDE_FROM_ALL)
-endif()
+# _ffclib_exclude (cmake/Dependencies.cmake): build only what ffclib links, skip the solvers' install rules.
 
 if(FFCLIB_WITH_CLARABEL)
     # Needs Rust/cargo. Clarabel.cpp builds its Rust core in cargo's release profile only for CMAKE_BUILD_TYPE
