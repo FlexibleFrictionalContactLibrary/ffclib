@@ -63,8 +63,8 @@ Result clarabel(const Problem& pb, const ConicSettings& st) {
     res.converged = sol.status == clarabel::SolverStatus::Solved;
     res.status = statusName(sol.status);
     res.iterations = static_cast<int>(sol.iterations);
-    res.solution = solutionFromDuals(pb, sol.z);
-    res.errors = errors(pb, res.solution.r, res.solution.lambda);
+    res.solution = solutionFromConeProgram(pb, sol.x, sol.z);
+    res.errors = errors(pb, res.solution);
     return res;
 }
 

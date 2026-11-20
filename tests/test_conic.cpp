@@ -1,6 +1,6 @@
 // The conic solvers:
 //   1. the cone program: at a candidate (v, r, lambda) its stationarity and slack rows are the problem's
-//      equations, and solutionFromDuals() recovers the percussions;
+//      equations, and solutionFromConeProgram() recovers the candidate;
 //   2. every built solver (Clarabel, SCS, QOCO, ConicXX, cuOpt) on the closed-form point mass (convexified law) and on a random
 //      feasible problem. A solver without a solution because of its platform (cuOpt without GPU) is skipped.
 
@@ -80,8 +80,8 @@ void testConeProgram() {
     }
     expect(maxDiff(slack, expected) < tol, "cone program: slacks are the bilateral rows and S_c u_c");
 
-    const ffclib::Solution s = ffclib::solutionFromDuals(pb, z);
-    expect(maxDiff(s.r, r) < tol && maxDiff(s.lambda, lambda) < tol && maxDiff(s.v, ffclib::velocity(pb, r, lambda)) < tol, "cone program: percussions from the duals");
+    const ffclib::Solution s = ffclib::solutionFromConeProgram(pb, x, z);
+    expect(maxDiff(s.v, v) < tol && maxDiff(s.r, r) < tol && maxDiff(s.lambda, lambda) < tol, "cone program: the solution from x and z");
 }
 
 using SolverFunction = ffclib::Result (*)(const ffclib::Problem&, const ffclib::ConicSettings&);
@@ -89,21 +89,24 @@ using SolverFunction = ffclib::Result (*)(const ffclib::Problem&, const ffclib::
 void testSolver(const std::string& name, SolverFunction solve) {
     ffclib::ConicSettings settings;
     settings.atol = settings.rtol = 1e-9;
-    // The native tolerance does not bound the error of error.hpp: on the random problem Clarabel reaches 4e-6
-    // at native 1e-9 (SCS 1e-14), on the point mass the percussions agree to 1e-6.
-    const double pointMassAccuracy = 1e-6, randomAccuracy = 1e-5;
+    // With data of order one the balance and the bilateral rows (the stationarity and the zero rows of the cone
+    // program) meet the native tolerance; the contact error falls only with the square root of the gap: on the
+    // random problem the interior point methods reach 3e-6 to 4e-6 at native 1e-9 (SCS 1e-14), on the point mass
+    // the percussions agree to 1e-6.
+    const double feasibility = settings.atol, pointMassAccuracy = 1e-6, randomAccuracy = 1e-5;
 
-    // Convexified law of the sliding point mass: r = (1.6, -0.8, 0), lambda = 0.2.
+    // Convexified law of the sliding point mass: r = (1.6, -0.8, 0), lambda = 0.2, v = (0.6, 0, 0.3, 0.1).
     ffclib::Result res = solve(test::pointMass(test::kSliding), settings);
     if (res.status.rfind("no solution", 0) == 0) {
         std::cout << name << ": skipped (" << res.status << ")\n";
         return;
     }
-    expect(res.converged && maxDiff(res.solution.r, Eigen::Vector3d(1.6, -0.8, 0)) < pointMassAccuracy && maxDiff(res.solution.lambda, ffclib::Vector::Constant(1, 0.2)) < pointMassAccuracy,
+    expect(res.converged && maxDiff(res.solution.r, Eigen::Vector3d(1.6, -0.8, 0)) < pointMassAccuracy && maxDiff(res.solution.lambda, ffclib::Vector::Constant(1, 0.2)) < pointMassAccuracy &&
+               maxDiff(res.solution.v, Eigen::Vector4d(0.6, 0, 0.3, 0.1)) < pointMassAccuracy,
            name + ": point mass, " + res.status);
 
     res = solve(test::feasibleProblem(), settings);
-    expect(res.converged && res.errors.convexified < randomAccuracy, name + ": random problem, " + res.status);
+    expect(res.converged && res.errors.balance < feasibility && res.errors.bilateral < feasibility && res.errors.convexified < randomAccuracy, name + ": random problem, " + res.status);
 }
 
 }  // namespace

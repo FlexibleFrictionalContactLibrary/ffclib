@@ -12,12 +12,12 @@ namespace ffclib {
 enum class Law { Coulomb, Convexified };
 
 struct Result {
-    Solution solution;      // with v = M^-1 (f + H r + G lambda)
+    Solution solution;      // the solver's own v (Gauss-Seidel: M^-1 (f + H r + G lambda)), r, lambda
     bool converged{false};  // the solver met its stopping criterion (atol and rtol of its settings;
                             // conic solvers: in their own measures)
     std::string status;     // the solver's own description of the outcome
     int iterations{0};      // the solver's iterations (Gauss-Seidel: sweeps)
-    Errors errors;          // both error measures of the solution
+    Errors errors;          // errors(problem, solution)
     double seconds{0};      // wall time of the solve, setup included
 };
 

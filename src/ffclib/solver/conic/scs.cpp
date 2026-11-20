@@ -43,8 +43,8 @@ Result scs(const Problem& pb, const ConicSettings& st) {
     res.converged = flag == SCS_SOLVED;
     res.status = info.status;
     res.iterations = static_cast<int>(info.iter);
-    res.solution = solutionFromDuals(pb, y);
-    res.errors = errors(pb, res.solution.r, res.solution.lambda);
+    res.solution = solutionFromConeProgram(pb, x, y);
+    res.errors = errors(pb, res.solution);
     return res;
 }
 

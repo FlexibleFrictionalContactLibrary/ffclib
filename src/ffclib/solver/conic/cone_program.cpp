@@ -88,10 +88,11 @@ ConeProgram coneProgram(const Problem& pb) {
     return cp;
 }
 
-Solution solutionFromDuals(const Problem& pb, const Vector& z) {
+Solution solutionFromConeProgram(const Problem& pb, const Vector& x, const Vector& z) {
     const int nb = pb.nb();
     const ContactRows contacts = contactRows(pb);
-    if (z.size() != nb + static_cast<Eigen::Index>(contacts.frictionless.size() + 3 * contacts.frictional.size())) throw std::invalid_argument("ffclib: the duals do not match the cone program");
+    if (x.size() < pb.nv() || z.size() != nb + static_cast<Eigen::Index>(contacts.frictionless.size() + 3 * contacts.frictional.size()))
+        throw std::invalid_argument("ffclib: x or z does not match the cone program");
     const Vector lambda = -z.head(nb);
     Vector r = Vector::Zero(3 * pb.nc());
     int row = nb;
@@ -102,7 +103,7 @@ Solution solutionFromDuals(const Problem& pb, const Vector& z) {
         r[3 * c + 2] = pb.mu[c] * z[row + 2];
         row += 3;
     }
-    return {velocity(pb, r, lambda), r, lambda};
+    return {x.head(pb.nv()), r, lambda};
 }
 
 }  // namespace ffclib

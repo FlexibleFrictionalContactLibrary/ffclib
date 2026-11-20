@@ -172,8 +172,8 @@ Result cuopt(const Problem& pb, const ConicSettings& st) {
     Vector r = Vector::Zero(3 * nc);
     for (int c = 0; c < nc; ++c)
         for (int j = 0; first[c] >= 0 && j < components(c); ++j) r[3 * c + j] = scale(c, j) * x[first[c] + j];
-    res.solution = {velocity(pb, r, lambda), r, lambda};
-    res.errors = errors(pb, r, lambda);
+    res.solution = {x.head(nv), r, lambda};
+    res.errors = errors(pb, res.solution);
     return res;
 }
 

@@ -33,16 +33,20 @@ in `.hdf5` (fclib's ending), no infix.
 
 ## Error measures (error.hpp)
 
-Two numbers, Coulomb and convexified (shift 0, what conic solvers solve), each
-max(‖Gᵀv + b + Cλ‖∞, max_c ‖r_c − proj_K(r_c − ρ_c û_c)‖/ρ_c) with the Euclidean norm and ρ_c = 1/λ_max(H_cᵀM⁻¹H_c),
-evaluated at v = M⁻¹(f + Hr + Gλ) (proposed by Claude, accepted by the user: balance holds by construction, only
-(r, λ) needed, no mixing of momentum and velocity units). Contacts with
-H_c = 0 are skipped. NaN propagates.
+Redesigned 2026-11-20 (user): the errors of a candidate (v, r, λ), one per condition, each evaluated at the
+candidate's own v, no max over them (a max is easy to add later): balance ‖Mv − (f + Hr + Gλ)‖∞ (momentum units,
+user's choice), bilateral ‖Gᵀv + b + Cλ‖∞, contacts max_c ‖r_c − proj_K(r_c − ρ_c û_c)‖/ρ_c for Coulomb and the
+convexified law, ρ_c = 1/λ_max(H_cᵀM⁻¹H_c), Euclidean norm. Contacts with H_c = 0 are skipped. NaN propagates to the
+errors that use it. Only `errors(pb, solution)`: every solver and every stored solution has a v.
+
+Replaced: evaluation at v̄ = M⁻¹(f + Hr + Gλ) with (r, λ) only (Claude's proposal of 2026-11-19). It amplified the
+conic solvers' balance residual by M⁻¹ into the bilateral error (net_wires: residual 1e-8 → bilateral 1e-2, at the
+solver's v 3e-7). No solver needed it: cuOpt has no duals, but its force form has v as a variable.
 
 ## Solvers
 
 - Layout (user): solvers in `src/ffclib/solver/`, conic ones in `solver/conic/`; many more solvers will come.
-- `solver/solver.hpp`: `Law` and `Result` (solution with v = M⁻¹(f + Hr + Gλ) via `velocity()`, converged, status,
+- `solver/solver.hpp`: `Law` and `Result` (solution with the solver's own v, converged, status,
   iterations, both errors, wall time) are common; each solver has its own settings struct and one function.
 - Naive Gauss–Seidel / SOR on the global problem: v kept equal to M⁻¹(f + Hr + Gλ); per sweep each bilateral
   row solved exactly ((G_kᵀM⁻¹G_k + C_kk) Δλ_k = −residual_k, couplings through C via the current λ), each contact one projection
@@ -57,7 +61,8 @@ H_c = 0 are skipped. NaN propagates.
   max_iterations, time_limit, verbose}, 0 = the solver's default; `converged` = the solver's success status (its own
   tolerances do not bound our error: Clarabel 4e-6 at native 1e-9 on the random test problem, SCS "solved" on slinky
   with error 1e3). Contacts with H_c = 0 are left out (r_c = 0), consistent with GS and the error measure.
-  - Clarabel, SCS, QOCO, ConicXX: velocity form (`cone_program`), percussions = duals (`solutionFromDuals`); form F
+  - Clarabel, SCS, QOCO, ConicXX: velocity form (`cone_program`), v from x, percussions = duals, λ = −z also for
+    compliant rows (user: perfect rows have no primal π) (`solutionFromConeProgram`); form F
     dropped. QOCO: equality rows (A, y) and cone rows (G, z) split; no time limit; static `qocostatic`. ConicXX pinned
     to 05b3b42 (CardilloCxx's checkout; it uses `main`), its LDLᵀ is C++ in its namespace (no symbol clash).
   - cuOpt: no duals with cone constraints, so it gets the force form directly from the problem (variables v, λ,
@@ -70,6 +75,9 @@ H_c = 0 are skipped. NaN propagates.
 
 ## License and packaging (2026-11-20)
 
+- Self-contained build (user): Eigen and HDF5 from an installation or a parent project, otherwise fetched
+  (`cmake/Dependencies.cmake`). Fetched HDF5 is static and PIC, carried by the shared `libffclib`; installing a static
+  ffclib with a fetched HDF5 is refused (its package would have to hand HDF5 on).
 - Apache-2.0 (as fclib; chosen by Claude on the user's request), `LICENSE` + `NOTICE` (third-party licenses).
   ConicXX and CardilloCxx are GPL-3.0: binaries with `FFCLIB_WITH_CONICXX` are GPL combined works (fine for the user:
   ConicXX is only a test of the user's own solver).

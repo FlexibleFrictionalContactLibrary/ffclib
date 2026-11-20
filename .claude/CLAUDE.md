@@ -10,7 +10,7 @@ library for black-box solvers: format (`FORMAT.md`), reading/writing, error meas
 contact geometry, time step, history) does not belong in it.
 
 - `src/ffclib/` – library, headers and sources side by side, included as `<ffclib/...>`: `problem` (Problem,
-  Solution, check, MassInverse; sizes nv, nc, nb), `io` (read/write a Record), `error` (the two error measures),
+  Solution, check, MassInverse; sizes nv, nc, nb), `io` (read/write a Record), `error` (balance, bilateral, contact errors of a candidate),
   `cone.hpp` (projection). `solver/`: `solver.hpp` (Law, Result), `gauss_seidel` (naive projected Gauss–Seidel/SOR),
   `conic/` (`cone_program` = convexified problem in the velocity form + ConicSettings; `clarabel`, `scs`, `qoco`,
   `conicxx`, `cuopt`, each behind `FFCLIB_WITH_<NAME>`: the CPU ones default ON at top level (user), cuOpt OFF; cuOpt
@@ -49,6 +49,9 @@ ctest --test-dir build-solvers               # test_io, test_error, test_gauss_s
 OMP_NUM_THREADS=1 build-solvers/ffclib_solve ../ffclib-library/Global/CardilloCxx/domino/domino_small_000500.cfc.h5 --solver clarabel
 ```
 
+- Eigen and HDF5 come from an installation or are fetched (`cmake/Dependencies.cmake`; HDF5 1.14.6 + zlib, static).
+  Test the fetched path with `-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=OFF`
+  (plus `CMAKE_MAKE_PROGRAM` and the compilers given explicitly).
 - **One thread, one job at a time** (`OMP_NUM_THREADS=1`): the machine is shared with other agent sessions.
 - Waiting for background jobs: never `pgrep -f "<pattern>"` in a loop (it matches its own command line).
 - `build-cfc/` is the build tree of the old library (binaries `cfc_info`, `cfc_solve`); delete when not needed.

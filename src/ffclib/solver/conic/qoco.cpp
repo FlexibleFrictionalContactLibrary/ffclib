@@ -59,7 +59,7 @@ Result qoco(const Problem& pb, const ConicSettings& st) {
     if (st.max_iterations > 0) settings.max_iters = st.max_iterations;
 
     Result res;
-    Vector z = Vector::Zero(p + m);
+    Vector x = Vector::Zero(n), z = Vector::Zero(p + m);
     auto* solver = static_cast<QOCOSolver*>(std::malloc(sizeof(QOCOSolver)));  // freed by qoco_cleanup
     const QOCOInt setup = qoco_setup(solver, n, m, p, &Pq, c.data(), p > 0 ? &Aq : nullptr, p > 0 ? b.data() : nullptr, m > 0 ? &Gq : nullptr, m > 0 ? h.data() : nullptr, cp.dims.nonneg,
                                      static_cast<QOCOInt>(soc.size()), soc.empty() ? nullptr : soc.data(), &settings);
@@ -71,13 +71,14 @@ Result qoco(const Problem& pb, const ConicSettings& st) {
         res.converged = exit == QOCO_SOLVED;
         res.status = statusName(exit);
         res.iterations = solver->sol->iters;
+        x = Eigen::Map<const Vector>(solver->sol->x, n);
         if (p > 0) z.head(p) = Eigen::Map<const Vector>(solver->sol->y, p);
         if (m > 0) z.tail(m) = Eigen::Map<const Vector>(solver->sol->z, m);
         qoco_cleanup(solver);
     }
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    res.solution = solutionFromDuals(pb, z);
-    res.errors = errors(pb, res.solution.r, res.solution.lambda);
+    res.solution = solutionFromConeProgram(pb, x, z);
+    res.errors = errors(pb, res.solution);
     return res;
 }
 

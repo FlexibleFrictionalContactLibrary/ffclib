@@ -90,8 +90,8 @@ Result gaussSeidel(const Problem& pb, const GaussSeidelSettings& st, const Solut
         }
     }
     res.iterations = sweep;
-    res.errors = errors(pb, s.r, s.lambda);
     s.v = velocity(pb, s.r, s.lambda);  // without the round-off accumulated by the updates
+    res.errors = errors(pb, s);
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     return res;
 }

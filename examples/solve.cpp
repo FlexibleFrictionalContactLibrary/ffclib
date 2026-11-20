@@ -1,5 +1,5 @@
 // Reads a problem, solves it and prints the errors of the solution (and of the solution stored in the file, if
-// any).
+// any): balance (momentum units), bilateral rows and contacts with both laws (velocity units), error.hpp.
 //
 //   ffclib_solve FILE [--solver NAME] [--atol A] [--rtol R] [--max-iterations N] [--out FILE]
 //                     [--law coulomb|convexified] [--relaxation W] [--cold]
@@ -103,17 +103,19 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    auto print = [](const char* what, const ffclib::Errors& e) {
+        std::printf("%-16s balance %.3e, bilateral %.3e, contacts Coulomb %.3e, convexified %.3e\n", what, e.balance, e.bilateral, e.coulomb, e.convexified);
+    };
     const ffclib::Record rec = ffclib::read(argv[1]);
     const ffclib::Problem& pb = rec.problem;
     std::printf("%s: nv %d, nc %d, nb %d\n", argv[1], pb.nv(), pb.nc(), pb.nb());
     if (rec.solution) {
-        const ffclib::Errors e = ffclib::errors(pb, rec.solution->r, rec.solution->lambda);
-        std::printf("stored solution: error Coulomb %.3e, convexified %.3e\n", e.coulomb, e.convexified);
+        print("stored solution", ffclib::errors(pb, *rec.solution));
     }
 
     const ffclib::Result res = (*solve)(pb, !cold && !rec.guesses.empty() ? &rec.guesses.front() : nullptr);
     std::printf("%s: %s, %d iterations, %.3f s\n", name.c_str(), res.status.c_str(), res.iterations, res.seconds);
-    std::printf("solution:        error Coulomb %.3e, convexified %.3e\n", res.errors.coulomb, res.errors.convexified);
+    print("solution", res.errors);
 
     if (!out.empty()) {
         ffclib::Record solved = rec;

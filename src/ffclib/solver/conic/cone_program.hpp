@@ -16,14 +16,23 @@
 //   nonneg rows   -H_N,c^T v + s_c = w_N,c              contacts without friction (mu_c = 0)
 //   SOC rows      -S_c H_c^T v + s_c = S_c w_c          contacts with friction, S_c = diag(1, mu_c, mu_c)
 //
-// The percussions are the duals of the rows: lambda = -z_zero, r_c = S_c z_c (r_c = (z_c, 0, 0) without
-// friction). Contacts that act on no velocity (H_c = 0) are left out and get r_c = 0.
+// The solution is v from x and the percussions from the duals of the rows: lambda = -z_zero (also for the
+// compliant rows, whose pi equals it at the optimum; perfect rows have no pi), r_c = S_c z_c (r_c = (z_c, 0, 0)
+// without friction). Contacts that act on no velocity (H_c = 0) are left out and get r_c = 0.
 namespace ffclib {
 
 // Settings of the conic solvers. They go to each solver's own stopping test, which is not the error of
 // error.hpp; 0 keeps the solver's default. atol and rtol set the solver's absolute and relative tolerances
 // (Clarabel, ConicXX: gap_abs = atol, gap_rel = feas = rtol; SCS: eps_abs, eps_rel; QOCO: abstol, reltol;
 // cuOpt: the absolute and relative primal, dual and gap tolerances).
+//
+// The solvers' tests are residuals of the KKT conditions of the cone program, scaled by the largest data and
+// iterates (Clarabel, ConicXX: 2-norms of q, x, z; QOCO: infinity norms, the gap relative to the objective
+// 1/2 v'Mv - f'v; SCS: infinity norms). The errors of error.hpp are these residuals unscaled: the stationarity
+// Px + q + A'z is the balance (plus C(pi - lambda) on the compliant rows), the zero rows are the bilateral rows,
+// cone membership and complementarity the contacts. An interior point method stops with r_c . u_c of the order
+// gap / nc at every contact, so the contact error ~ min(u_N,c, r_N,c / rho_c) is of the order
+// sqrt(gap / (nc rho_c)): it falls only with the square root of the gap.
 struct ConicSettings {
     double atol{0};
     double rtol{0};
@@ -51,7 +60,7 @@ ConeProgram coneProgram(const Problem& pb);
 // Whether contact c acts on a velocity (H_c != 0); the conic solvers leave out the others (r_c = 0).
 bool actsOnVelocity(const Problem& pb, int c);
 
-// The solution from the duals z of the rows of coneProgram(pb), with v = M^-1 (f + H r + G lambda).
-Solution solutionFromDuals(const Problem& pb, const Vector& z);
+// The solution from a primal-dual pair (x, z) of coneProgram(pb): v from x, the percussions from z.
+Solution solutionFromConeProgram(const Problem& pb, const Vector& x, const Vector& z);
 
 }  // namespace ffclib

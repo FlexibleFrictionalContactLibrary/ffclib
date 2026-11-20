@@ -21,7 +21,7 @@ Result conicxx(const Problem& pb, const ConicSettings& st) {
     spec.soc_dims.assign(cp.dims.soc.begin(), cp.dims.soc.end());
 
     Result res;
-    Vector z = Vector::Zero(cp.A.rows());
+    Vector x = Vector::Zero(cp.A.cols()), z = Vector::Zero(cp.A.rows());
     conicxx::Solver solver;
     if (!solver.setup(cp.P, cp.q, cp.A, cp.b, spec, settings)) {
         res.status = "setup failed";
@@ -30,11 +30,12 @@ Result conicxx(const Problem& pb, const ConicSettings& st) {
         res.converged = sol.status == conicxx::Status::Solved;
         res.status = conicxx::toString(sol.status);
         res.iterations = sol.info.iterations;
+        x = sol.x;
         z = sol.z;
     }
     res.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    res.solution = solutionFromDuals(pb, z);
-    res.errors = errors(pb, res.solution.r, res.solution.lambda);
+    res.solution = solutionFromConeProgram(pb, x, z);
+    res.errors = errors(pb, res.solution);
     return res;
 }
 

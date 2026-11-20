@@ -1,4 +1,4 @@
-# Status and next steps (2026-11-19)
+# Status and next steps (2026-11-20)
 
 ## Done
 
@@ -18,6 +18,18 @@
   - QOCO (defaults): domino Solved, 21 it, 1.8 s, 8.6e-5; slinky Solved, 18 it, 0.25 s, 9.2e-4. ConicXX: domino
     Solved, 27 it, 2.1 s, 2.3e-5; slinky Solved, 20 it, 0.27 s, 2.4e-4.
   - Coulomb and the zero-shift law differ by ~0.2 m/s (domino) and ~0.05 m/s (slinky).
+- 2026-11-20: errors redesigned (design.md): `Errors{balance, bilateral, coulomb, convexified}` at the candidate's
+  own v, `errors(pb, solution)`; the solvers return their own v. Findings on `net_wires_000030` (nv 670,458,
+  nb 669,016, nc 7,240, masses 4.9e-10 … 850) that led to it, with the old evaluation at M⁻¹(f + Hr + Gλ):
+  Clarabel/ConicXX at 1e-10 balance residual 1e-8 → bilateral error 1e-2 (3e-7 at their v); SCS defaults 2e-4 → 47
+  (9e-6). Contact error ≈ √(gap/(nc ρ_c)): QOCO gap 3e-3 → 3e-6 lowered it only 3e-2 → 1.6e-3 ("Solved" at 1e-10: gap
+  relative to the objective 6.9e4). The user plans to change ConicXX's stopping test to infinity norms.
+- CardilloCxx's `tests/test_ffclib_export.cpp` (fetches ffclib `main`) calls `errors(pb, r, lambda)` and compares
+  `coulomb` with max(engine Coulomb, bilateral) and a contact shift: needs `errors(pb, sol)` and direct comparisons.
+- 2026-11-20: `cmake/Dependencies.cmake`: Eigen and HDF5 from an installation or fetched (Eigen 3.4.0; HDF5 1.14.6
+  tarball with SHA256, static, PIC, with zlib 1.3.1 that HDF5 fetches itself). Eigen's build tree in the user package
+  registry broke a remote configure that had failed at HDF5 before; the search now ignores the registry and a fetched
+  Eigen no longer registers itself (CMP0090).
 
 ## Next
 
